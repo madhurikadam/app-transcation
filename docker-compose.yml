@@ -1,0 +1,14 @@
+version: '3'
+services:
+    postgres:
+        image: postgres:13-alpine
+        environment:
+            - POSTGRES_DB=postgres
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+            - PGPORT=5432
+        ports:
+            - "5432:5432"
+        volumes:
+            - ./docker/postgres:/var/lib/postgresql/
+            - ./docker/postgres/initdb:/docker-entrypoint-initdb.d
