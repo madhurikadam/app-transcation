@@ -20,12 +20,18 @@ type (
 		CreateAccount(ctx context.Context, account domain.Account) error
 		GetAccount(ctx context.Context, id string) (*domain.Account, error)
 
-		CreateTranscation(ctx context.Context, transcation domain.Transcation) error
+		CreateCreditTranscation(ctx context.Context, transcation domain.Transcation) error
+		CreateDebitTranscation(ctx context.Context, transcation domain.Transcation) error
 	}
 )
 
 var (
-	ErrInvalidDocumentNumber = fmt.Errorf("invalid document id")
+	ErrInvalidDocumentNumber  = fmt.Errorf("invalid document id")
+	ErrInvalidAccountID       = fmt.Errorf("invalid account id")
+	ErrInvalidOperationTypeID = fmt.Errorf("invalid operation type id")
+
+	defaultCreditLimit    = 1000.00
+	defaultWithdrwalLimit = 1000.00
 )
 
 func New(repo Repo) TranscationService {
@@ -43,10 +49,12 @@ func (t *TranscationService) CreateAccount(ctx context.Context, documentNumber s
 	now := time.Now().UTC()
 
 	account := domain.Account{
-		ID:             uuid.NewString(),
-		DocumentNumber: documentNumber,
-		CreatedAt:      now,
-		UpdatedAt:      &now,
+		ID:              uuid.NewString(),
+		DocumentNumber:  documentNumber,
+		CreatedAt:       now,
+		UpdatedAt:       &now,
+		CreaditLimit:    defaultCreditLimit,
+		WithdrawalLimit: defaultWithdrwalLimit,
 	}
 
 	err := t.repo.CreateAccount(ctx, account)
@@ -61,7 +69,7 @@ func (t *TranscationService) CreateAccount(ctx context.Context, documentNumber s
 // GetAccount get account details via account id
 func (t *TranscationService) GetAccount(ctx context.Context, accountID string) (*domain.Account, error) {
 	if accountID == "" {
-		return nil, fmt.Errorf("invalid account id")
+		return nil, ErrInvalidAccountID
 	}
 
 	account, err := t.repo.GetAccount(ctx, accountID)
@@ -76,26 +84,37 @@ func (t *TranscationService) GetAccount(ctx context.Context, accountID string) (
 // CreateTranscation add new transcation for given account id
 func (t *TranscationService) CreateTranscation(ctx context.Context, transcation domain.Transcation) (*domain.Transcation, error) {
 	if transcation.AccountID == "" {
-		return nil, fmt.Errorf("invalid account id")
+		return nil, ErrInvalidAccountID
 	}
 
 	if err := validateOpTypeID(transcation.OperationTypeID); err != nil {
 		return nil, err
 	}
 
-	if err := validateOpAndAmount(transcation.OperationTypeID, transcation.Amount); err != nil {
-		return nil, err
-	}
-
 	transcation.ID = uuid.NewString()
 	transcation.EventAt = time.Now().UTC()
 
-	// TODO validation on the balance available and transcation amount
-	// before doing any transcation on account.
-
-	err := t.repo.CreateTranscation(ctx, transcation)
+	acc, err := t.repo.GetAccount(ctx, transcation.AccountID)
 	if err != nil {
-		log.WithField("account_id", transcation.AccountID).Error("failed to create transcation", err)
+		return nil, err
+	}
+
+	if (transcation.OperationTypeID == 1 || transcation.OperationTypeID == 2 || transcation.OperationTypeID == 3) && acc.WithdrawalLimit < transcation.Amount {
+		return nil, fmt.Errorf("exceed withdrwal limit")
+	} else if transcation.OperationTypeID == 4 && transcation.Amount > acc.CreaditLimit {
+		return nil, fmt.Errorf("exceed credit limit")
+	}
+
+	if transcation.OperationTypeID == 1 || transcation.OperationTypeID == 2 || transcation.OperationTypeID == 3 {
+		transcation.Amount = -transcation.Amount
+		if err := t.repo.CreateDebitTranscation(ctx, transcation); err != nil {
+			return nil, err
+		}
+
+		return &transcation, nil
+	}
+
+	if err := t.repo.CreateCreditTranscation(ctx, transcation); err != nil {
 		return nil, err
 	}
 
@@ -107,18 +126,6 @@ func validateOpTypeID(opTypeID int) error {
 	case 1, 2, 3, 4:
 		return nil
 	default:
-		return fmt.Errorf("invalid operation type id")
+		return ErrInvalidOperationTypeID
 	}
-}
-
-func validateOpAndAmount(opTypeID int, amount float64) error {
-	if (opTypeID == 1 || opTypeID == 2 || opTypeID == 3) && amount >= 0 {
-		return fmt.Errorf("invalid amount for operation type id %d", opTypeID)
-	}
-
-	if opTypeID == 4 && amount <= 0 {
-		return fmt.Errorf("invalid amount for operation type id %d", opTypeID)
-	}
-
-	return nil
 }

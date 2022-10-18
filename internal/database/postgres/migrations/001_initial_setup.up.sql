@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS accounts (
     id uuid PRIMARY KEY,
     document_number TEXT NOT NULL,
-    balance float8,
+    withdrawal_limit float8 not null default 3000,
+    credit_limit float8 not null default 3000,
     created_at timestamp NOT NULL,
     updated_at timestamp NOT NULL
 );

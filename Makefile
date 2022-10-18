@@ -14,12 +14,16 @@ clean:
 
 # builds our binary
 build:
-	cd $(CURDIR); CGO_ENABLED=0 go build -ldflags '-w' -o $(SERVICE) ./cmd
+	cd $(CURDIR); CGO_ENABLED=0 go build -ldflags '-w' -o .build/$(SERVICE) ./cmd
 
 $(SERVICE): build
 
 .PHONY: all
 all: clean $(LINTER) build
+
+docker-image:
+	make build
+	docker build -f Dockerfile  --rm -t $(SERVICE):local . --build-arg SERVICE=$(SERVICE)
 
 dev:
 	go run ./cmd/main.go

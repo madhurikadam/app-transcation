@@ -25,4 +25,6 @@ const (
 	UpdatedAt       = "updated_at"
 	EventAt         = "event_at"
 	Amount          = "amount"
+	CreditLimit     = "credit_limit"
+	WithdrewalLimit = "withdrawal_limit"
 )

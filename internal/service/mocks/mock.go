@@ -49,18 +49,32 @@ func (mr *MockRepoMockRecorder) CreateAccount(ctx, account interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAccount", reflect.TypeOf((*MockRepo)(nil).CreateAccount), ctx, account)
 }
 
-// CreateTranscation mocks base method.
-func (m *MockRepo) CreateTranscation(ctx context.Context, transcation domain.Transcation) error {
+// CreateCreditTranscation mocks base method.
+func (m *MockRepo) CreateCreditTranscation(ctx context.Context, transcation domain.Transcation) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateTranscation", ctx, transcation)
+	ret := m.ctrl.Call(m, "CreateCreditTranscation", ctx, transcation)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CreateTranscation indicates an expected call of CreateTranscation.
-func (mr *MockRepoMockRecorder) CreateTranscation(ctx, transcation interface{}) *gomock.Call {
+// CreateCreditTranscation indicates an expected call of CreateCreditTranscation.
+func (mr *MockRepoMockRecorder) CreateCreditTranscation(ctx, transcation interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTranscation", reflect.TypeOf((*MockRepo)(nil).CreateTranscation), ctx, transcation)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCreditTranscation", reflect.TypeOf((*MockRepo)(nil).CreateCreditTranscation), ctx, transcation)
+}
+
+// CreateDebitTranscation mocks base method.
+func (m *MockRepo) CreateDebitTranscation(ctx context.Context, transcation domain.Transcation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateDebitTranscation", ctx, transcation)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateDebitTranscation indicates an expected call of CreateDebitTranscation.
+func (mr *MockRepoMockRecorder) CreateDebitTranscation(ctx, transcation interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDebitTranscation", reflect.TypeOf((*MockRepo)(nil).CreateDebitTranscation), ctx, transcation)
 }
 
 // GetAccount mocks base method.

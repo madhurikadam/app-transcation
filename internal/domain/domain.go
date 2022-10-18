@@ -3,11 +3,12 @@ package domain
 import "time"
 
 type Account struct {
-	ID             string     `json:"id"`
-	DocumentNumber string     `json:"document_number"`
-	Balance        float64    `json:"balance"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      *time.Time `json:"updated_at"`
+	ID              string     `json:"id"`
+	DocumentNumber  string     `json:"document_number"`
+	WithdrawalLimit float64    `json:"withdrawal_limit"`
+	CreaditLimit    float64    `json:"credit_limit"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       *time.Time `json:"updated_at"`
 }
 
 type AccountReq struct {
