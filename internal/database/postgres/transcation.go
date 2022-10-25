@@ -8,10 +8,22 @@ import (
 	"github.com/madhurikadam/app-transcation/internal/domain"
 )
 
-func (r *Repo) CreateCreditTranscation(ctx context.Context, transcation domain.Transcation) error {
+func (r *Repo) CreateCreditTranscation(ctx context.Context, transcation domain.Transcation, dbTxList []domain.DebitTx) error {
 	tx, err := r.pgx.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction")
+	}
+
+	for _, update := range dbTxList {
+		err := r.updateBalance(ctx, update.ID, update.Amount, tx)
+		if err != nil {
+			txErr := tx.Rollback(ctx)
+			if txErr != nil {
+				return txErr
+			}
+
+			return err
+		}
 	}
 
 	if err := r.createTranscation(ctx, transcation, tx); err != nil {
@@ -61,6 +73,7 @@ func (r *Repo) createTranscation(ctx context.Context, transcation domain.Transca
 			OperationTypeID,
 			Amount,
 			EventAt,
+			Balance,
 		).
 		Values(
 			transcation.ID,
@@ -68,6 +81,7 @@ func (r *Repo) createTranscation(ctx context.Context, transcation domain.Transca
 			transcation.OperationTypeID,
 			transcation.Amount,
 			transcation.EventAt,
+			transcation.Balance,
 		)
 
 	query, params, err := stmt.ToSql()
@@ -80,4 +94,8 @@ func (r *Repo) createTranscation(ctx context.Context, transcation domain.Transca
 	}
 
 	return nil
+}
+
+func (r *Repo) ListDebitTx(ctx context.Context) ([]domain.Transcation, error) {
+	return nil, nil
 }

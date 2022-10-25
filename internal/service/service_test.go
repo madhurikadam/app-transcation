@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/madhurikadam/app-transcation/internal/domain"
 	"github.com/madhurikadam/app-transcation/internal/service/mocks"
 
@@ -252,7 +253,25 @@ func (s *ServiceTestSuite) TestCreateTranscation() {
 			name: "create credit transcation with success",
 			mocks: func() {
 				s.repo.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(&domain.Account{CreaditLimit: 400}, nil)
-				s.repo.EXPECT().CreateCreditTranscation(gomock.Any(), gomock.Any()).Return(nil)
+				s.repo.EXPECT().CreateCreditTranscation(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				s.repo.EXPECT().ListDebitTx(gomock.Any()).Return([]domain.Transcation{
+					{
+						ID:      uuid.NewString(),
+						Amount:  50,
+						Balance: -50,
+					},
+					{
+						ID:      uuid.NewString(),
+						Amount:  23.5,
+						Balance: -23.5,
+					},
+					{
+						ID:      uuid.NewString(),
+						Amount:  18.7,
+						Balance: -18.7,
+					},
+				}, nil)
+
 			},
 			input: domain.Transcation{
 				AccountID:       accountID,
@@ -287,6 +306,135 @@ func (s *ServiceTestSuite) TestCreateTranscation() {
 			s.Equal(tt.expectedOp.OperationTypeID, tx.OperationTypeID)
 			s.Equal(tt.expectedOp.AccountID, tx.AccountID)
 			s.Equal(tt.expectedOp.Amount, tx.Amount)
+		})
+	}
+}
+func (s *ServiceTestSuite) TestDispatchTx() {
+	ctx := context.Background()
+	accountID := "12345678"
+	id1 := uuid.NewString()
+	id2 := uuid.NewString()
+	id3 := uuid.NewString()
+	tests := []struct {
+		name              string
+		mocks             func()
+		input             domain.Transcation
+		expErr            bool
+		expError          error
+		expectedCreditBal float64
+		expectedDList     []domain.DebitTx
+	}{
+		{
+			name: "create credit transcation with success where debit balance is greater than credit balance",
+			mocks: func() {
+				s.repo.EXPECT().ListDebitTx(gomock.Any()).Return([]domain.Transcation{
+					{
+						ID:      id1,
+						Amount:  50,
+						Balance: -50,
+					},
+					{
+						ID:      id2,
+						Amount:  23.5,
+						Balance: -23.5,
+					},
+					{
+						ID:      id3,
+						Amount:  18.7,
+						Balance: -18.7,
+					},
+				}, nil)
+			},
+			input: domain.Transcation{
+				AccountID:       accountID,
+				OperationTypeID: 4,
+				Amount:          60,
+			},
+			expectedCreditBal: 0,
+			expectedDList: []domain.DebitTx{
+				{
+					ID:     id1,
+					Amount: 0,
+				},
+				{
+					ID:     id2,
+					Amount: -13.5,
+				},
+				{
+					ID:     id3,
+					Amount: -18.7,
+				},
+			},
+		},
+		{
+			name: "create credit transcation with success where debit balance is greater than credit balance",
+			mocks: func() {
+				s.repo.EXPECT().ListDebitTx(gomock.Any()).Return([]domain.Transcation{
+					{
+						ID:      id1,
+						Amount:  50,
+						Balance: 0,
+					},
+					{
+						ID:      id2,
+						Amount:  23.5,
+						Balance: -13.5,
+					},
+					{
+						ID:      id3,
+						Amount:  18.7,
+						Balance: -18.7,
+					},
+				}, nil)
+			},
+			input: domain.Transcation{
+				AccountID:       accountID,
+				OperationTypeID: 4,
+				Amount:          100,
+			},
+			expectedCreditBal: 67.8,
+			expectedDList: []domain.DebitTx{
+				{
+					ID:     id1,
+					Amount: 0,
+				},
+				{
+					ID:     id2,
+					Amount: 0,
+				},
+				{
+					ID:     id3,
+					Amount: 0,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+
+		s.Run(tt.name, func() {
+			s.SetupTest()
+			tt.mocks()
+
+			creditBal, dList, err := s.svc.dispatchTx(ctx, tt.input)
+			if tt.expErr {
+				s.Require().Error(err)
+				s.Require().Equal(tt.expError, err)
+
+				return
+			}
+
+			s.Require().NoError(err)
+			s.Require().Equal(tt.expectedCreditBal, creditBal)
+			s.Require().ElementsMatch(tt.expectedDList, dList)
+			for _, bal := range dList {
+				for _, aBal := range tt.expectedDList {
+					if aBal.ID == bal.ID {
+						s.Require().Equal(aBal.Amount, bal.Amount)
+					}
+				}
+			}
 		})
 	}
 }

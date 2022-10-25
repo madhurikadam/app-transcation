@@ -97,7 +97,7 @@ func (r *Repo) updateDebitLimit(ctx context.Context, accountID string, amount fl
 	stmt := r.psql.
 		Update(TableAccounts).
 		Set(WithdrewalLimit,
-			squirrel.Expr("withdrawal_limit + ?", amount),
+			squirrel.Expr("withdrawal_limit + ?", -amount),
 		).Where(squirrel.Eq{ID: accountID})
 
 	query, params, err := stmt.ToSql()
@@ -118,6 +118,23 @@ func (r *Repo) updateCreditLimit(ctx context.Context, accountID string, amount f
 		Set(CreditLimit,
 			squirrel.Expr("credit_limit - ?", amount),
 		).Where(squirrel.Eq{ID: accountID})
+
+	query, params, err := stmt.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, query, params...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Repo) updateBalance(ctx context.Context, id string, amount float64, tx pgx.Tx) error {
+	stmt := r.psql.
+		Update(TableTranscations).
+		Set(Balance, amount).Where(squirrel.Eq{ID: id})
 
 	query, params, err := stmt.ToSql()
 	if err != nil {

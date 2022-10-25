@@ -21,4 +21,10 @@ type Transcation struct {
 	OperationTypeID int       `json:"operation_type_id"`
 	Amount          float64   `json:"amount"`
 	EventAt         time.Time `json:"event_at"`
+	Balance         float64   `json:"balance"`
+}
+
+type DebitTx struct {
+	ID     string
+	Amount float64
 }

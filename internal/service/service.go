@@ -20,8 +20,10 @@ type (
 		CreateAccount(ctx context.Context, account domain.Account) error
 		GetAccount(ctx context.Context, id string) (*domain.Account, error)
 
-		CreateCreditTranscation(ctx context.Context, transcation domain.Transcation) error
+		CreateCreditTranscation(ctx context.Context, transcation domain.Transcation, dbTxList []domain.DebitTx) error
 		CreateDebitTranscation(ctx context.Context, transcation domain.Transcation) error
+		// GetCreditBalance(ctx context.Context) (float64, error)
+		ListDebitTx(ctx context.Context) ([]domain.Transcation, error)
 	}
 )
 
@@ -106,6 +108,7 @@ func (t *TranscationService) CreateTranscation(ctx context.Context, transcation 
 	}
 
 	if transcation.OperationTypeID == 1 || transcation.OperationTypeID == 2 || transcation.OperationTypeID == 3 {
+		transcation.Balance = transcation.Amount
 		transcation.Amount = -transcation.Amount
 		if err := t.repo.CreateDebitTranscation(ctx, transcation); err != nil {
 			return nil, err
@@ -114,11 +117,50 @@ func (t *TranscationService) CreateTranscation(ctx context.Context, transcation 
 		return &transcation, nil
 	}
 
-	if err := t.repo.CreateCreditTranscation(ctx, transcation); err != nil {
+	creditBalance, dTxList, err := t.dispatchTx(ctx, transcation)
+	if err != nil {
+		return nil, err
+	}
+	transcation.Balance = creditBalance
+	if err := t.repo.CreateCreditTranscation(ctx, transcation, dTxList); err != nil {
 		return nil, err
 	}
 
 	return &transcation, nil
+}
+
+func (t *TranscationService) dispatchTx(ctx context.Context, transcation domain.Transcation) (float64, []domain.DebitTx, error) {
+	var balance float64
+	dTxList := make([]domain.DebitTx, 0)
+	dList, err := t.repo.ListDebitTx(ctx)
+	if err != nil {
+		return balance, dTxList, err
+	}
+
+	if len(dList) <= 0 {
+		balance = transcation.Amount
+		return balance, dTxList, nil
+	}
+	txAmount := transcation.Amount
+	for _, val := range dList {
+		if -val.Balance <= txAmount {
+			dTxList = append(dTxList, domain.DebitTx{
+				ID:     val.ID,
+				Amount: 0,
+			})
+
+			txAmount = txAmount + val.Balance
+		} else {
+			//set balance of debit tx to tx.amount - txAmount
+			dTxList = append(dTxList, domain.DebitTx{
+				ID:     val.ID,
+				Amount: val.Balance + txAmount,
+			})
+			txAmount = 0
+		}
+	}
+
+	return txAmount, dTxList, nil
 }
 
 func validateOpTypeID(opTypeID int) error {

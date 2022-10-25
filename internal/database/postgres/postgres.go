@@ -27,4 +27,5 @@ const (
 	Amount          = "amount"
 	CreditLimit     = "credit_limit"
 	WithdrewalLimit = "withdrawal_limit"
+	Balance         = "balance"
 )
